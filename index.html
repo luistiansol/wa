@@ -1,89 +1,210 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>System Radar Link</title>
+    <title>Inventory Pro - KN</title>
+    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
     <style>
-        /* Diseño "Fantasma": Fondo negro puro para pantalla AMOLED */
+        :root {
+            --bg: #000000;
+            --card: #1c1c1e;
+            --text: #ffffff;
+            --accent: #0a84ff;
+            --warning: #ffd60a;
+            --success: #30d158;
+        }
         body { 
-            margin: 0; 
-            background: #000; 
-            overflow: hidden; 
-            display: flex; 
-            justify-content: center; 
-            align-items: center; 
-            height: 100vh; 
+            font-family: system-ui, sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            margin: 0;
+            padding: 10px 10px 110px 10px;
+        }
+        .header { text-align: center; border-bottom: 1px solid #333; padding-bottom: 10px; position: sticky; top: 0; background: var(--bg); z-index: 10; }
+        #stats { font-size: 1.2rem; margin: 10px 0; color: var(--accent); }
+        
+        #last-action-box {
+            background: #2c2c2e;
+            border-left: 4px solid var(--success);
+            padding: 10px;
+            margin: 10px 0;
+            font-size: 0.9rem;
+            border-radius: 6px;
         }
 
-        /* Video circular que llena la pantalla del Watch Ultra */
-        #player { 
-            width: 100vw; 
-            height: 100vw; 
-            border-radius: 50%; 
-            object-fit: cover; 
-            display: none; 
-            z-index: 2; 
+        .list-container { display: flex; flex-direction: column; gap: 10px; margin-top: 15px; }
+        
+        .pallet-card {
+            background-color: var(--card);
+            border-radius: 12px;
+            padding: 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border: 1px solid #333;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.3);
         }
 
-        /* Efecto Radar: Disfraza la app si no hay video */
-        .radar-line { 
-            position: absolute; 
-            width: 85vw; 
-            height: 85vw; 
-            border: 1px solid #003300; 
-            border-radius: 50%; 
-            animation: pulse 3s infinite ease-out; 
+        .controls {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            width: 90%;
+            align-items: center;
         }
+        .btn-group { display: flex; gap: 10px; width: 100%; justify-content: center; }
+        
+        button {
+            padding: 14px 20px;
+            border-radius: 30px;
+            border: none;
+            font-weight: bold;
+            cursor: pointer;
+            font-size: 0.9rem;
+        }
+        #undo-btn { background: #444; color: white; display: none; width: 100%; }
+        #new-list-btn { background: var(--accent); color: white; flex: 1; }
+        #download-btn { background: var(--success); color: white; display: none; flex: 1; }
 
-        @keyframes pulse {
-            0% { transform: scale(0.8); opacity: 0.5; }
-            100% { transform: scale(1.2); opacity: 0; }
-        }
-
-        .status-text {
-            color: #003300;
-            font-family: monospace;
-            font-size: 0.6rem;
-            position: absolute;
-            bottom: 20%;
-        }
+        #loading { display: none; text-align: center; color: var(--warning); padding: 20px; font-weight: bold; }
+        #file-input { display: none; }
     </style>
 </head>
 <body>
 
-    <div class="radar-line"></div>
-    <div class="status-text" id="status">SYNC ACTIVE</div>
-    
-    <video id="player" playsinline autoplay muted></video>
+    <div class="header">
+        <h2>📦 Picker Helper</h2>
+        <div id="stats">Pending: <span id="count">0</span></div>
+        <div id="last-action-box">Last action: <br><span id="last-text" style="font-weight:bold; color:var(--success)">None</span></div>
+    </div>
+
+    <div id="loading">Scanning image... Please wait.</div>
+    <div id="pallet-list" class="list-container"></div>
+
+    <div class="controls">
+        <button id="undo-btn" onclick="undoDelete()">↩ Undo last pick</button>
+        <div class="btn-group">
+            <button id="new-list-btn" onclick="document.getElementById('file-input').click()">📸 New Scan</button>
+            <button id="download-btn" onclick="generateReport()">💾 Save Report</button>
+        </div>
+    </div>
+
+    <input type="file" id="file-input" accept="image/*">
+    <canvas id="reportCanvas" style="display:none;"></canvas>
 
     <script>
-        // Captura el video enviado por la Rutina de Samsung
-        const urlParams = new URLSearchParams(window.location.search);
-        const videoSrc = urlParams.get('v');
+        let pallets = [];
+        let workedPallets = []; 
+        let lastDeleted = null;
 
-        if (videoSrc) {
-            const p = document.getElementById('player');
-            const s = document.getElementById('status');
-            p.src = videoSrc;
-            p.style.display = 'block';
-            s.style.display = 'none';
+        const listDiv = document.getElementById('pallet-list');
+        const countSpan = document.getElementById('count');
+        const lastText = document.getElementById('last-text');
+        const undoBtn = document.getElementById('undo-btn');
+        const downloadBtn = document.getElementById('download-btn');
+        const loading = document.getElementById('loading');
+
+        document.getElementById('file-input').onchange = function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            loading.style.display = 'block';
+            listDiv.innerHTML = '';
             
-            // Intenta reproducir automáticamente
-            p.play();
-            
-            // Vibración discreta de aviso en el reloj
-            if (navigator.vibrate) navigator.vibrate([30, 50, 30]);
+            Tesseract.recognize(file, 'eng').then(({ data: { text } }) => {
+                const lines = text.split('\n');
+                const newPallets = [];
+
+                lines.forEach(line => {
+                    const lpnMatch = line.match(/LEC\d+[A-Z0-9]*/i);
+                    const locMatch = line.match(/[A-Z]{2}\d+[A-Z]\d+/i);
+
+                    if (lpnMatch && locMatch) {
+                        newPallets.push({ 
+                            lpn: lpnMatch[0].toUpperCase(), 
+                            loc: locMatch[0].toUpperCase() 
+                        });
+                    }
+                });
+
+                // Ordenar A-Z por Location
+                pallets = newPallets.sort((a, b) => a.loc.localeCompare(b.loc));
+                workedPallets = []; 
+                loading.style.display = 'none';
+                render();
+            });
+        };
+
+        function render() {
+            listDiv.innerHTML = '';
+            countSpan.innerText = pallets.length;
+            downloadBtn.style.display = pallets.length === 0 && workedPallets.length > 0 ? 'block' : 'none';
+
+            pallets.forEach((item, index) => {
+                const card = document.createElement('div');
+                card.className = 'pallet-card';
+                card.innerHTML = `<div><b style="color:var(--warning); font-size:1.3rem;">${item.loc}</b><br><small>${item.lpn}</small></div><div>✓</div>`;
+                card.onclick = () => removePallet(index);
+                listDiv.appendChild(card);
+            });
         }
 
-        // Tocar la pantalla activa el audio (restricción del navegador)
-        document.body.onclick = () => {
-            const p = document.getElementById('player');
-            p.muted = false;
-            if (document.documentElement.requestFullscreen) {
-                document.documentElement.requestFullscreen();
+        function removePallet(index) {
+            const item = pallets[index];
+            lastDeleted = { data: item, index: index };
+            
+            lastText.innerText = `${item.loc} | ${item.lpn}`;
+            workedPallets.push({ ...item, time: new Date().toLocaleTimeString() });
+            
+            pallets.splice(index, 1);
+            undoBtn.style.display = 'block';
+            render();
+            setTimeout(() => { undoBtn.style.display = 'none'; }, 7000);
+        }
+
+        function undoDelete() {
+            if (lastDeleted) {
+                pallets.splice(lastDeleted.index, 0, lastDeleted.data);
+                workedPallets.pop();
+                lastDeleted = null;
+                undoBtn.style.display = 'none';
+                render();
             }
-        };
+        }
+
+        function generateReport() {
+            const canvas = document.getElementById('reportCanvas');
+            const ctx = canvas.getContext('2d');
+            const dateStr = new Date().toLocaleString();
+            
+            canvas.width = 500;
+            canvas.height = 100 + (workedPallets.length * 30);
+
+            ctx.fillStyle = "white";
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            ctx.fillStyle = "black";
+            ctx.font = "bold 20px Arial";
+            ctx.fillText("INVENTORY REPORT - KUEHNE+NAGEL", 30, 40);
+            
+            ctx.font = "italic 14px Arial";
+            ctx.fillText(`Date: ${dateStr}`, 30, 70);
+            
+            ctx.font = "14px monospace";
+            workedPallets.forEach((p, i) => {
+                ctx.fillText(`${i+1}. [${p.time}] LOC: ${p.loc} - LPN: ${p.lpn}`, 30, 110 + (i * 25));
+            });
+
+            const link = document.createElement('a');
+            link.download = `Report_${new Date().getTime()}.png`;
+            link.href = canvas.toDataURL();
+            link.click();
+        }
     </script>
 </body>
 </html>
