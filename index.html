@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>System Radar Link</title>
+    <style>
+        /* Diseño "Fantasma": Fondo negro puro para pantalla AMOLED */
+        body { 
+            margin: 0; 
+            background: #000; 
+            overflow: hidden; 
+            display: flex; 
+            justify-content: center; 
+            align-items: center; 
+            height: 100vh; 
+        }
+
+        /* Video circular que llena la pantalla del Watch Ultra */
+        #player { 
+            width: 100vw; 
+            height: 100vw; 
+            border-radius: 50%; 
+            object-fit: cover; 
+            display: none; 
+            z-index: 2; 
+        }
+
+        /* Efecto Radar: Disfraza la app si no hay video */
+        .radar-line { 
+            position: absolute; 
+            width: 85vw; 
+            height: 85vw; 
+            border: 1px solid #003300; 
+            border-radius: 50%; 
+            animation: pulse 3s infinite ease-out; 
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(0.8); opacity: 0.5; }
+            100% { transform: scale(1.2); opacity: 0; }
+        }
+
+        .status-text {
+            color: #003300;
+            font-family: monospace;
+            font-size: 0.6rem;
+            position: absolute;
+            bottom: 20%;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="radar-line"></div>
+    <div class="status-text" id="status">SYNC ACTIVE</div>
+    
+    <video id="player" playsinline autoplay muted></video>
+
+    <script>
+        // Captura el video enviado por la Rutina de Samsung
+        const urlParams = new URLSearchParams(window.location.search);
+        const videoSrc = urlParams.get('v');
+
+        if (videoSrc) {
+            const p = document.getElementById('player');
+            const s = document.getElementById('status');
+            p.src = videoSrc;
+            p.style.display = 'block';
+            s.style.display = 'none';
+            
+            // Intenta reproducir automáticamente
+            p.play();
+            
+            // Vibración discreta de aviso en el reloj
+            if (navigator.vibrate) navigator.vibrate([30, 50, 30]);
+        }
+
+        // Tocar la pantalla activa el audio (restricción del navegador)
+        document.body.onclick = () => {
+            const p = document.getElementById('player');
+            p.muted = false;
+            if (document.documentElement.requestFullscreen) {
+                document.documentElement.requestFullscreen();
+            }
+        };
+    </script>
+</body>
+</html>
