@@ -1,46 +1,19 @@
 <!DOCTYPE html>
-<html lang="es">
+<html>
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Ultra Access</title>
+    <meta name="viewport" content="width=1024">
+    <title>WhatsApp Ultra Bypass</title>
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { 
-            background: #000; 
-            display: flex; flex-direction: column; align-items: center; justify-content: center;
-            height: 100vh; width: 100vw; font-family: sans-serif;
-        }
-        .container {
-            width: 90vw; height: 90vw; border-radius: 50%;
-            border: 2px solid #6A0DAD; position: relative;
-            display: flex; flex-direction: column; align-items: center; justify-content: center;
-            gap: 10px; background: radial-gradient(circle, #1a0033 0%, #000 100%);
-        }
+        body { background: #000; color: #FF0000; display: flex; align-items: center; justify-content: center; height: 100vh; font-family: sans-serif; }
         .btn {
-            width: 80%; padding: 12px; border-radius: 20px;
-            text-align: center; text-decoration: none; font-weight: bold; font-size: 12px;
-            text-transform: uppercase; transition: 0.2s;
+            border: 2px solid #6A0DAD; padding: 20px; border-radius: 50%;
+            text-decoration: none; color: white; font-weight: bold; text-align: center;
         }
-        .btn-wa { background: #25D366; color: white; border: 2px solid #128C7E; } /* Verde WhatsApp */
-        .btn-video { background: #FF0000; color: white; border: 2px solid #6A0DAD; } /* Rojo/Púrpura */
-        
-        .btn:active { transform: scale(0.9); filter: brightness(1.2); }
-        
-        .scan {
-            position: absolute; width: 100%; height: 2px; background: #FF0000;
-            box-shadow: 0 0 10px #FF0000; animation: move 3s infinite linear;
-            pointer-events: none;
-        }
-        @keyframes move { 0% { top: 20%; } 100% { top: 80%; } }
     </style>
 </head>
 <body>
-    <div class="container">
-        <div class="scan"></div>
-        <a href="https://web.whatsapp.com" class="btn btn-wa">WhatsApp Web</a>
-        
-        <a href="https://www.xvideos.com" class="btn btn-video">Video Stream</a>
-    </div>
+    <a href="https://web.whatsapp.com/?target=desktop" class="btn">
+        PRESIONA AQUÍ <br> PARA QR
+    </a>
 </body>
 </html>
